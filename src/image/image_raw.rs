@@ -176,6 +176,7 @@ where
         }
     }
 
+    /// Get raw image data
     pub const fn data(&self) -> &'a [u8] {
         self.data
     }
@@ -214,10 +215,24 @@ where
     {
         let row_skip = self.data_width() - self.size.width;
 
-        target.fill_contiguous(
-            &self.bounding_box(),
-            ContiguousPixels::new(self, self.size, 0, row_skip as usize),
-        )
+        let pixels = self.data();
+        let spritesheet_key = self.data().as_ptr() as u32;
+        if target.upload_spritesheet(
+            spritesheet_key, pixels, self.size.width, self.size.height, C::Raw::BITS_PER_PIXEL as u8) {
+            target.blit_sprite(
+                spritesheet_key,
+                0, 0,
+                self.size.width, self.size.height,
+                self.bounding_box().top_left.x, self.bounding_box().top_left.y,
+                None
+            );
+            Ok(())
+        } else {
+            target.fill_contiguous(
+                &self.bounding_box(),
+                ContiguousPixels::new(self, self.size, 0, row_skip as usize),
+            )
+        }
     }
 
     fn draw_sub_image<D>(&self, target: &mut D, area: &Rectangle) -> Result<(), D::Error>
@@ -234,15 +249,29 @@ where
             return Ok(());
         }
 
-        let data_width = self.data_width() as usize;
+        let pixels = self.data();
+        let spritesheet_key = self.data().as_ptr() as u32;
+        if target.upload_spritesheet(
+            spritesheet_key, pixels, self.size.width, self.size.height, C::Raw::BITS_PER_PIXEL as u8) {
+            target.blit_sprite(
+                spritesheet_key,
+                area.top_left.x, area.top_left.y,
+                area.size.width, area.size.height,
+                0, 0,
+                None
+            );
+            Ok(())
+        } else {
+            let data_width = self.data_width() as usize;
 
-        let initial_skip = area.top_left.y as usize * data_width + area.top_left.x as usize;
-        let row_skip = data_width - area.size.width as usize;
+            let initial_skip = area.top_left.y as usize * data_width + area.top_left.x as usize;
+            let row_skip = data_width - area.size.width as usize;
 
-        target.fill_contiguous(
-            &Rectangle::new(Point::zero(), area.size),
-            ContiguousPixels::new(self, area.size, initial_skip, row_skip),
-        )
+            target.fill_contiguous(
+                &Rectangle::new(Point::zero(), area.size),
+                ContiguousPixels::new(self, area.size, initial_skip, row_skip),
+            )
+        }
     }
 }
 
